@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel 3D Editor - FastAPI</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; background-color: #1a1a1a; user-select: none; }
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(30, 30, 30, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 12px 16px;
+            border-radius: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            z-index: 10;
+        }
+        .ui-group { display: flex; align-items: center; gap: 6px; }
+        .divider { width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 4px; }
+        label { font-size: 13px; font-weight: 500; color: #ccc; }
+        input[type="color"] {
+            -webkit-appearance: none; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; background: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: 2px solid #ffffff33; border-radius: 50%; }
+        select, button, input[type="number"], .file-label {
+            background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.15);
+            padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.2s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        input[type="number"] { width: 60px; cursor: text; }
+        select:hover, button:hover, .file-label:hover {
+            background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3);
+        }
+        button.active {
+            background: #2563eb !important; border-color: #60a5fa !important; box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
+        }
+        button.primary { background: #2563eb; border-color: #3b82f6; }
+        button.primary:hover { background: #1d4ed8; }
+        button.danger { background: #dc2626; border-color: #ef4444; }
+        button.danger:hover { background: #b91c1c; }
+        select option { background: #222; color: #fff; }
+        input[type="file"] { display: none; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <div class="ui-group">
+            <label for="colorPicker">Color:</label>
+            <input type="color" id="colorPicker" value="#ff0000">
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="ui-group">
+            <button id="toolAdd" class="active" title="Añadir Vóxel">✏️ Dibujar</button>
+            <button id="toolPaint" title="Pintar Vóxel">🎨 Pintar</button>
+            <button id="toolErase" title="Borrar Vóxel">🧽 Borrar</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="ui-group">
+            <label for="planeSize">Plano:</label>
+            <input type="number" id="planeSize" value="1000" step="100" min="100" title="Tamaño del plano">
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="ui-group">
+            <label for="fileInput" class="file-label" title="Subir modelo JSON, OBJ o GLTF/GLB">
+                📁 Subir Modelo
+            </label>
+            <input type="file" id="fileInput" accept=".json,.obj,.gltf,.glb">
+            <button id="clearBtn" class="danger" title="Limpiar Escena">Limpiar</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="ui-group">
+            <select id="exportFormat">
+                <option value="obj">.OBJ (3D Standard)</option>
+                <option value="gltf">.GLTF (Binary .glb)</option>
+                <option value="json">.JSON (Datos Voxels)</option>
+            </select>
+            <button id="downloadBtn" class="primary">Descargar</button>
+        </div>
+    </div>
+    <script type="module" src="/static/app.js"></script>
+</body>
+</html>
