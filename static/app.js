@@ -122,4 +122,171 @@ function onPointerUp(event) {
         } 
         else if (currentTool === 'paint') {
             if (intersect.object !== plane) {
-                intersect.
+                intersect.object.material.color.setHex(parseInt(currentColor.replace('#', '0x')));
+            }
+        }
+        else if (currentTool === 'add') {
+            const mat = new THREE.MeshStandardMaterial({ color: parseInt(currentColor.replace('#', '0x')), roughness: 0.3 });
+            const voxel = new THREE.Mesh(cubeGeo, mat);
+            voxel.position.copy(intersect.point).add(intersect.face.normal);
+            voxel.position.divideScalar(50).floor().multiplyScalar(50).addScalar(25);
+            scene.add(voxel);
+            objects.push(voxel);
+        }
+    }
+}
+
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    const reader = new FileReader();
+
+    if (fileName.endsWith('.json')) {
+        reader.onload = function (e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (Array.isArray(data)) {
+                    clearScene();
+                    data.forEach(item => {
+                        const mat = new THREE.MeshStandardMaterial({ color: parseInt(item.color.replace('#', '0x')), roughness: 0.3 });
+                        const voxel = new THREE.Mesh(cubeGeo, mat);
+                        voxel.position.set(item.x, item.y, item.z);
+                        scene.add(voxel);
+                        objects.push(voxel);
+                    });
+                }
+            } catch (err) {
+                alert('Error al leer el archivo JSON.');
+            }
+        };
+        reader.readAsText(file);
+    } 
+    else if (fileName.endsWith('.obj')) {
+        reader.onload = function (e) {
+            const loader = new OBJLoader();
+            const obj = loader.parse(e.target.result);
+            voxelizeAndLoad(obj);
+        };
+        reader.readAsText(file);
+    } 
+    else if (fileName.endsWith('.gltf') || fileName.endsWith('.glb')) {
+        reader.onload = function (e) {
+            const loader = new GLTFLoader();
+            loader.parse(e.target.result, '', (gltf) => {
+                voxelizeAndLoad(gltf.scene);
+            }, (err) => {
+                alert('Error al procesar el archivo GLTF/GLB.');
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    event.target.value = '';
+}
+
+function voxelizeAndLoad(object3D) {
+    clearScene();
+    const bbox = new THREE.Box3().setFromObject(object3D);
+    const center = bbox.getCenter(new THREE.Vector3());
+
+    object3D.traverse((child) => {
+        if (child.isMesh) {
+            const geometry = child.geometry;
+            const positionAttribute = geometry.attributes.position;
+            const colorToUse = child.material && child.material.color ? '#' + child.material.color.getHexString() : currentColor;
+
+            for (let i = 0; i < positionAttribute.count; i++) {
+                const vertex = new THREE.Vector3();
+                vertex.fromBufferAttribute(positionAttribute, i);
+                child.localToWorld(vertex);
+
+                const vx = Math.floor((vertex.x - center.x) / 50) * 50 + 25;
+                const vy = Math.max(25, Math.floor((vertex.y - bbox.min.y) / 50) * 50 + 25);
+                const vz = Math.floor((vertex.z - center.z) / 50) * 50 + 25;
+
+                const exists = objects.some(o => o !== plane && o.position.x === vx && o.position.y === vy && o.position.z === vz);
+
+                if (!exists) {
+                    const mat = new THREE.MeshStandardMaterial({ color: parseInt(colorToUse.replace('#', '0x')), roughness: 0.3 });
+                    const voxel = new THREE.Mesh(cubeGeo, mat);
+                    voxel.position.set(vx, vy, vz);
+                    scene.add(voxel);
+                    objects.push(voxel);
+                }
+            }
+        }
+    });
+}
+
+function exportModel() {
+    const voxelMeshes = objects.filter(obj => obj !== plane);
+
+    if (voxelMeshes.length === 0) {
+        alert('No hay vóxeles en la escena para descargar.');
+        return;
+    }
+
+    const format = document.getElementById('exportFormat').value;
+
+    if (format === 'obj') {
+        const exporter = new OBJExporter();
+        const group = new THREE.Group();
+        voxelMeshes.forEach(mesh => group.add(mesh.clone()));
+        
+        const result = exporter.parse(group);
+        triggerDownload(new Blob([result], { type: 'text/plain' }), 'modelo_voxel.obj');
+    } 
+    else if (format === 'gltf') {
+        const exporter = new GLTFExporter();
+        const group = new THREE.Group();
+        voxelMeshes.forEach(mesh => group.add(mesh.clone()));
+
+        exporter.parse(
+            group,
+            function (gltf) {
+                const blob = new Blob([gltf], { type: 'application/octet-stream' });
+                triggerDownload(blob, 'modelo_voxel.glb');
+            },
+            function (error) { console.error('Error al exportar GLTF:', error); },
+            { binary: true }
+        );
+    } 
+    else if (format === 'json') {
+        const data = voxelMeshes.map(obj => ({
+            x: obj.position.x,
+            y: obj.position.y,
+            z: obj.position.z,
+            color: '#' + obj.material.color.getHexString()
+        }));
+        const jsonStr = JSON.stringify(data, null, 2);
+        triggerDownload(new Blob([jsonStr], { type: 'application/json' }), 'modelo_voxel.json');
+    }
+}
+
+function triggerDownload(blob, filename) {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+}
+
+function clearScene() {
+    const toRemove = objects.filter(obj => obj !== plane);
+    toRemove.forEach(obj => scene.remove(obj));
+    objects = [plane];
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
